@@ -35,5 +35,12 @@ jobs:
       - name: Build
         run: swift build -v
 
+      # This package has no test target yet. `swift test` treats "no tests" as
+      # an error, so skip it until a Tests/ directory exists.
       - name: Test
-        run: swift test -v
+        run: |
+          if [ -d Tests ]; then
+            swift test -v
+          else
+            echo "No Tests/ directory — skipping tests."
+          fi
