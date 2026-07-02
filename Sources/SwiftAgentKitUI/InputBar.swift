@@ -1,15 +1,30 @@
 import SwiftUI
 
 /// The input bar with text field and send/cancel button.
-struct InputBar: View {
+public struct InputBar: View {
     @Binding var text: String
+    let placeholder: String
     let isRunning: Bool
     let onSend: () -> Void
     let onCancel: () -> Void
 
-    var body: some View {
+    public init(
+        text: Binding<String>,
+        placeholder: String = "Message the agent…",
+        isRunning: Bool,
+        onSend: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self._text = text
+        self.placeholder = placeholder
+        self.isRunning = isRunning
+        self.onSend = onSend
+        self.onCancel = onCancel
+    }
+
+    public var body: some View {
         HStack(spacing: 10) {
-            TextField("Message the agent…", text: $text, axis: .vertical)
+            TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
                 .onSubmit {

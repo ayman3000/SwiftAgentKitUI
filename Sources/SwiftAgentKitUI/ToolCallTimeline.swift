@@ -1,10 +1,14 @@
 import SwiftUI
 
 /// A timeline view showing tool calls, their execution status, and results.
-struct ToolCallTimeline: View {
+public struct ToolCallTimeline: View {
     let events: [ToolCallEvent]
 
-    var body: some View {
+    public init(events: [ToolCallEvent]) {
+        self.events = events
+    }
+
+    public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Tool Calls")

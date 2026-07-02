@@ -21,12 +21,10 @@ public struct AgentChatView: View {
     let agent: Agent
     let configuration: AgentChatConfiguration
 
-    @State private var messages: [ChatMessage] = []
+    @State private var transcript = AgentChatTranscript()
     @State private var inputText: String = ""
-    @State private var isRunning = false
-    @State private var toolCallEvents: [ToolCallEvent] = []
-    @State private var currentTurn: Int = 0
-    @State private var streamingText: String = ""
+    @State private var didSetupEventObserver = false
+    @State private var ignoresAgentStreamChunks = false
 
     public init(agent: Agent, configuration: AgentChatConfiguration = .default) {
         self.agent = agent
@@ -39,23 +37,23 @@ public struct AgentChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(messages) { msg in
+                        ForEach(transcript.messages) { msg in
                             MessageBubble(message: msg)
                                 .id(msg.id)
                         }
 
                         // Streaming text preview
-                        if isRunning && !streamingText.isEmpty && configuration.showStreamingPreview {
+                        if transcript.isRunning && !transcript.streamingText.isEmpty && configuration.showStreamingPreview {
                             MessageBubble(message: ChatMessage(
                                 role: .assistant,
-                                text: streamingText,
+                                text: transcript.streamingText,
                                 isStreaming: true
                             ))
                             .id("streaming")
                         }
 
                         // Loading indicator
-                        if isRunning && streamingText.isEmpty {
+                        if transcript.isRunning && transcript.streamingText.isEmpty {
                             HStack {
                                 ProgressView()
                                     .scaleEffect(0.8)
@@ -69,14 +67,14 @@ public struct AgentChatView: View {
                     }
                     .padding(.vertical, 12)
                 }
-                .onChange(of: messages.count) { _ in
+                .onChange(of: transcript.messages.count) { _ in
                     withAnimation {
-                        if let lastId = messages.last?.id {
+                        if let lastId = transcript.messages.last?.id {
                             proxy.scrollTo(lastId, anchor: .bottom)
                         }
                     }
                 }
-                .onChange(of: streamingText) { _ in
+                .onChange(of: transcript.streamingText) { _ in
                     withAnimation {
                         proxy.scrollTo("streaming", anchor: .bottom)
                     }
@@ -84,9 +82,9 @@ public struct AgentChatView: View {
             }
 
             // Tool call timeline (optional)
-            if configuration.showToolCalls && !toolCallEvents.isEmpty {
+            if configuration.showToolCalls && !transcript.toolCallEvents.isEmpty {
                 Divider()
-                ToolCallTimeline(events: toolCallEvents)
+                ToolCallTimeline(events: transcript.toolCallEvents)
                     .frame(maxHeight: configuration.toolCallTimelineHeight)
             }
 
@@ -94,7 +92,8 @@ public struct AgentChatView: View {
             Divider()
             InputBar(
                 text: $inputText,
-                isRunning: isRunning,
+                placeholder: configuration.inputPlaceholder,
+                isRunning: transcript.isRunning,
                 onSend: sendMessage,
                 onCancel: cancelRun
             )
@@ -107,6 +106,9 @@ public struct AgentChatView: View {
     // MARK: - Setup
 
     private func setupEventObserver() {
+        guard !didSetupEventObserver else { return }
+        didSetupEventObserver = true
+
         agent.onEvent { event in
             Task { @MainActor in
                 handleEvent(event)
@@ -117,57 +119,7 @@ public struct AgentChatView: View {
     // MARK: - Event Handling
 
     private func handleEvent(_ event: AgentEvent) {
-        switch event {
-        case .started(let query):
-            messages.append(ChatMessage(role: .user, text: query))
-            isRunning = true
-            streamingText = ""
-            toolCallEvents = []
-
-        case .llmCallStarted(let turn):
-            currentTurn = turn
-
-        case .toolCallsReceived(let calls):
-            for call in calls {
-                toolCallEvents.append(ToolCallEvent(
-                    name: call.name,
-                    status: .pending
-                ))
-            }
-
-        case .toolExecutionStarted(let call):
-            updateToolCallEvent(name: call.name, status: .running)
-
-        case .toolExecutionFinished(let call, let result):
-            updateToolCallEvent(
-                name: call.name,
-                status: result.isError ? .error : .done,
-                result: result.result
-            )
-
-        case .streamChunk(let chunk):
-            streamingText += chunk
-
-        case .finished:
-            if !streamingText.isEmpty {
-                messages.append(ChatMessage(role: .assistant, text: streamingText, isStreaming: false))
-                streamingText = ""
-            }
-            isRunning = false
-            currentTurn = 0
-
-        default:
-            break
-        }
-    }
-
-    private func updateToolCallEvent(name: String, status: ToolCallStatus, result: String? = nil) {
-        if let idx = toolCallEvents.lastIndex(where: { $0.name == name && $0.status != .done && $0.status != .error }) {
-            toolCallEvents[idx].status = status
-            if let result = result {
-                toolCallEvents[idx].result = result
-            }
-        }
+        transcript.handleEvent(event, ignoresStreamChunks: ignoresAgentStreamChunks)
     }
 
     // MARK: - Actions
@@ -176,38 +128,39 @@ public struct AgentChatView: View {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         inputText = ""
+        transcript.startSubmittedQuery(text)
 
         Task {
             do {
                 if configuration.useStreaming {
+                    await MainActor.run {
+                        ignoresAgentStreamChunks = true
+                    }
+                    defer {
+                        Task { @MainActor in
+                            ignoresAgentStreamChunks = false
+                        }
+                    }
+
                     for try await chunk in agent.runStreaming(text) {
                         await MainActor.run {
-                            streamingText += chunk
+                            transcript.appendRunStreamingChunk(chunk)
                         }
                     }
                     await MainActor.run {
-                        if !streamingText.isEmpty {
-                            messages.append(ChatMessage(role: .assistant, text: streamingText))
-                            streamingText = ""
-                        }
-                        isRunning = false
+                        transcript.finishRun()
                     }
                 } else {
                     let response = try await agent.run(text)
                     await MainActor.run {
-                        messages.append(ChatMessage(role: .assistant, text: response))
-                        isRunning = false
+                        transcript.messages.append(ChatMessage(role: .assistant, text: response))
+                        transcript.isRunning = false
                     }
                 }
             } catch {
                 await MainActor.run {
-                    messages.append(ChatMessage(
-                        role: .assistant,
-                        text: "Error: \(error.localizedDescription)",
-                        isError: true
-                    ))
-                    isRunning = false
-                    streamingText = ""
+                    ignoresAgentStreamChunks = false
+                    transcript.failRun(error)
                 }
             }
         }
@@ -215,11 +168,8 @@ public struct AgentChatView: View {
 
     private func cancelRun() {
         agent.cancel()
-        isRunning = false
-        if !streamingText.isEmpty {
-            messages.append(ChatMessage(role: .assistant, text: streamingText + " [cancelled]"))
-            streamingText = ""
-        }
+        ignoresAgentStreamChunks = false
+        transcript.cancelRun()
     }
 }
 
@@ -265,7 +215,7 @@ public struct ChatMessage: Identifiable {
     public var isStreaming: Bool
     public var isError: Bool
 
-    public enum Role {
+    public enum Role: Equatable {
         case user
         case assistant
     }
@@ -294,7 +244,7 @@ public struct ToolCallEvent: Identifiable {
     }
 }
 
-public enum ToolCallStatus {
+public enum ToolCallStatus: Equatable {
     case pending
     case running
     case done

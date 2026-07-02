@@ -22,5 +22,12 @@ let package = Package(
                 .product(name: "LLMProviderKit", package: "LLMProviderKit"),
             ]
         ),
+        .testTarget(
+            name: "SwiftAgentKitUITests",
+            dependencies: [
+                "SwiftAgentKitUI",
+                .product(name: "SwiftAgentKit", package: "SwiftAgentKit"),
+            ]
+        ),
     ]
 )

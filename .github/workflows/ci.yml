@@ -35,8 +35,8 @@ jobs:
       - name: Build
         run: swift build -v
 
-      # This package has no test target yet. `swift test` treats "no tests" as
-      # an error, so skip it until a Tests/ directory exists.
+      # Keep older branches without a Tests/ directory buildable while running
+      # the package test suite whenever tests are present.
       - name: Test
         run: |
           if [ -d Tests ]; then

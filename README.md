@@ -76,6 +76,20 @@ Shows every event: LLM calls, tool dispatch, tool results, planning, repair retr
 
 ---
 
+## Example app
+
+A standalone demo app should live in its own repository so it exercises the same integration path as real users: adding `SwiftAgentKitUI` from GitHub rather than referencing this checkout locally.
+
+Recommended demo repository: [SwiftAgentKitUIDemo](https://github.com/ayman3000/SwiftAgentKitUIDemo)
+
+The demo should depend only on GitHub package URLs:
+
+- [SwiftAgentKitUI](https://github.com/ayman3000/SwiftAgentKitUI)
+- [SwiftAgentKit](https://github.com/ayman3000/SwiftAgentKit)
+- [LLMProviderKit](https://github.com/ayman3000/LLMProviderKit)
+
+---
+
 ## Installation
 
 Add to your `Package.swift`:

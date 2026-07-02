@@ -1,10 +1,14 @@
 import SwiftUI
 
 /// A message bubble for displaying user and assistant messages.
-struct MessageBubble: View {
+public struct MessageBubble: View {
     let message: ChatMessage
 
-    var body: some View {
+    public init(message: ChatMessage) {
+        self.message = message
+    }
+
+    public var body: some View {
         HStack {
             if message.role == .user {
                 Spacer(minLength: 60)
