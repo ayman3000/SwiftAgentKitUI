@@ -7,6 +7,7 @@ public struct InputBar: View {
     let isRunning: Bool
     let onSend: () -> Void
     let onCancel: () -> Void
+    @FocusState private var isTextFocused: Bool
 
     public init(
         text: Binding<String>,
@@ -26,10 +27,16 @@ public struct InputBar: View {
         HStack(spacing: 10) {
             TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
-                .lineLimit(1...5)
+                .lineLimit(2...6)
+                .focused($isTextFocused)
+                .frame(minHeight: 52, maxHeight: 132)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isTextFocused = true
+                }
                 .onSubmit {
                     if !isRunning {
-                        onSend()
+                        send()
                     }
                 }
 
@@ -41,7 +48,7 @@ public struct InputBar: View {
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
             } else {
-                Button(action: onSend) {
+                Button(action: send) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
                 }
@@ -52,5 +59,10 @@ public struct InputBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+
+    private func send() {
+        onSend()
+        isTextFocused = true
     }
 }
