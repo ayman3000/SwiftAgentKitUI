@@ -4,6 +4,8 @@ Ready-made SwiftUI views for AI agent apps. Built on [SwiftAgentKit](https://git
 
 > **SwiftAgentKit runs the agent loop. SwiftAgentKitUI gives you the chat UI.**
 
+> If these SwiftUI components help you ship an AI chat interface faster, consider giving the repo a ⭐.
+
 ---
 
 ## What's included
