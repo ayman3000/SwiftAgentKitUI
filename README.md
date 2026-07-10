@@ -98,8 +98,8 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ayman3000/SwiftAgentKitUI.git", from: "0.1.0-alpha.1"),
-    .package(url: "https://github.com/ayman3000/SwiftAgentKit.git", from: "0.1.0-alpha.1"),
+    .package(url: "https://github.com/ayman3000/SwiftAgentKitUI.git", from: "0.2.0-alpha.3"),
+    .package(url: "https://github.com/ayman3000/SwiftAgentKit.git", from: "0.2.0-alpha.3"),
     .package(url: "https://github.com/ayman3000/LLMProviderKit.git", from: "0.1.0-alpha.1"),
 ],
 targets: [
