@@ -14,6 +14,7 @@ public struct AgentEventView: View {
     let agent: Agent
     @State private var events: [EventEntry] = []
     @State private var isAutoScroll = true
+    @State private var didSetupEventObserver = false
 
     public init(agent: Agent) {
         self.agent = agent
@@ -65,6 +66,8 @@ public struct AgentEventView: View {
             }
         }
         .onAppear {
+            guard !didSetupEventObserver else { return }
+            didSetupEventObserver = true
             agent.onEvent { event in
                 Task { @MainActor in
                     events.append(EventEntry(from: event))
